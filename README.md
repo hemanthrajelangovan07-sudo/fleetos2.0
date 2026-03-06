@@ -106,23 +106,21 @@ Automated detection of 8 critical vehicle anomaly types with severity classifica
 git clone https://github.com/hemanthrajelangovan07-sudo/fleetos2.0.git
 cd fleetos2.0
 
-# Install dependencies
-npm install
+# # 1. Create a Vite React project
+npm create vite@latest fleetos2 -- --template react
+cd fleetos2
+
+# 2. Install dependencies
+npm install recharts lucide-react
+
+# 3. Replace src/App.jsx with FleetOS.jsx
+cp /path/to/FleetOS.jsx src/App.jsx
+#the path to FleetOS.jsx wil be available at the cloned files
+# 4. Start the dev server
+npm run dev
 ```
 
-### Running the App
-
-```bash
-npm start
-```
-
-The app will be available at `http://localhost:3000`.
-
-### Building for Production
-
-```bash
-npm run build
-```
+The app will be available at `http://localhost:5173`.
 
 ---
 
@@ -171,35 +169,10 @@ fleetos2.0/
 
 ---
 
-## 🔧 Configuration
 
-### Connecting to a Backend
-
-In the **Live Telemetry** page, you can configure the backend API URL (default: `http://localhost:8000`). FleetOS will ping the backend every 10 seconds and display a connection status indicator.
-
-The backend is expected to expose a health-check endpoint at `GET /`.
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! To get started:
-
-1. Fork the repository
-2. Create a feature branch: `git checkout -b feature/your-feature-name`
-3. Commit your changes: `git commit -m 'Add your feature'`
-4. Push to the branch: `git push origin feature/your-feature-name`
-5. Open a Pull Request
-
----
 
 ## 📄 License
 
 This project is licensed under the [MIT License](LICENSE).
 
 ---
-
-## 👤 Author
-
-**Hemanth Rajelangovan**
-- GitHub: [@hemanthrajelangovan07-sudo](https://github.com/hemanthrajelangovan07-sudo)
