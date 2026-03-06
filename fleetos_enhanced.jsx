@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useReducer, useCallback, useRef } from "react";
+import React, { useState, useMemo, useEffect, useReducer, useCallback, useRef } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, AreaChart, Area, Legend
@@ -8,7 +8,7 @@ import {
   Trash2, Search, X, BarChart2, Eye, EyeOff, CheckCircle, AlertCircle,
   Activity, TrendingUp, TrendingDown, Download, RefreshCw, Radio, AlertTriangle,
   Shield, Server, Brain, MessageSquare, Zap, Clock, Target, Cpu, Thermometer,
-  Gauge, Battery, Fuel, Send, ChevronRight, Info
+  Gauge, Battery, Fuel, Send, ChevronRight, Info, MapPin, Navigation, Layers
 } from "lucide-react";
 
 const T = {
@@ -111,27 +111,116 @@ const SIM_VEHICLES = [
   { id: 'VH-005', type: 'Hybrid', name: 'Honda City Hybrid', color: T.cyan   },
 ];
 
+// Real road waypoints for Chennai, India — each vehicle follows a named road corridor
+const VEHICLE_ROUTES = {
+  'VH-001': [ // Anna Salai (Mount Road) — Chennai Central ↔ Guindy
+    [13.0827, 80.2707], [13.0800, 80.2688], [13.0775, 80.2665],
+    [13.0748, 80.2638], [13.0718, 80.2610], [13.0692, 80.2584],
+    [13.0665, 80.2558], [13.0638, 80.2534], [13.0610, 80.2510],
+    [13.0582, 80.2487], [13.0555, 80.2465], [13.0525, 80.2443],
+    [13.0496, 80.2422], [13.0466, 80.2404], [13.0436, 80.2388],
+    [13.0405, 80.2374], [13.0374, 80.2360], [13.0344, 80.2347], // Guindy
+    [13.0374, 80.2360], [13.0405, 80.2374], [13.0436, 80.2388],
+    [13.0466, 80.2404], [13.0496, 80.2422], [13.0525, 80.2443],
+    [13.0555, 80.2465], [13.0582, 80.2487], [13.0610, 80.2510],
+    [13.0638, 80.2534], [13.0665, 80.2558], [13.0692, 80.2584],
+    [13.0718, 80.2610], [13.0748, 80.2638], [13.0775, 80.2665],
+    [13.0800, 80.2688],
+  ],
+  'VH-002': [ // OMR (Old Mahabalipuram Road) — Perungudi ↔ Kelambakkam
+    [12.9716, 80.2450], [12.9678, 80.2432], [12.9640, 80.2416],
+    [12.9600, 80.2408], [12.9560, 80.2396], [12.9520, 80.2386],
+    [12.9480, 80.2376], [12.9440, 80.2367], [12.9400, 80.2358],
+    [12.9360, 80.2350], [12.9320, 80.2342], [12.9280, 80.2336],
+    [12.9240, 80.2330], [12.9200, 80.2325], [12.9160, 80.2320], // Kelambakkam
+    [12.9200, 80.2325], [12.9240, 80.2330], [12.9280, 80.2336],
+    [12.9320, 80.2342], [12.9360, 80.2350], [12.9400, 80.2358],
+    [12.9440, 80.2367], [12.9480, 80.2376], [12.9520, 80.2386],
+    [12.9560, 80.2396], [12.9600, 80.2408], [12.9640, 80.2418],
+    [12.9678, 80.2432],
+  ],
+  'VH-003': [ // Chennai Port → George Town → Parry's → T.Nagar
+    [13.0878, 80.2988], [13.0855, 80.2952], [13.0830, 80.2912],
+    [13.0805, 80.2870], [13.0778, 80.2832], [13.0750, 80.2796],
+    [13.0722, 80.2762], [13.0694, 80.2728], [13.0665, 80.2695],
+    [13.0636, 80.2663], [13.0606, 80.2632], [13.0576, 80.2603],
+    [13.0545, 80.2575], [13.0514, 80.2548], [13.0482, 80.2523],
+    [13.0450, 80.2498], // T.Nagar area
+    [13.0482, 80.2523], [13.0514, 80.2548], [13.0545, 80.2575],
+    [13.0576, 80.2603], [13.0606, 80.2632], [13.0636, 80.2663],
+    [13.0665, 80.2695], [13.0694, 80.2728], [13.0722, 80.2762],
+    [13.0750, 80.2796], [13.0778, 80.2832], [13.0805, 80.2870],
+    [13.0830, 80.2912], [13.0855, 80.2952],
+  ],
+  'VH-004': [ // Adyar → Kasturba Nagar → Velachery loop
+    [13.0012, 80.2565], [13.0038, 80.2533], [13.0064, 80.2501],
+    [13.0092, 80.2470], [13.0120, 80.2439], [13.0148, 80.2408],
+    [13.0176, 80.2378], [13.0203, 80.2348], [13.0228, 80.2319],
+    [13.0252, 80.2290], // Velachery
+    [13.0228, 80.2319], [13.0203, 80.2348], [13.0176, 80.2378],
+    [13.0148, 80.2408], [13.0120, 80.2439], [13.0092, 80.2470],
+    [13.0064, 80.2501], [13.0038, 80.2533],
+  ],
+  'VH-005': [ // ECR (East Coast Road) — Thiruvanmiyur ↔ Kovalam (on-road coords)
+    [12.9834, 80.2554], [12.9800, 80.2545], [12.9765, 80.2535],
+    [12.9730, 80.2525], [12.9695, 80.2518], [12.9660, 80.2512],
+    [12.9620, 80.2508], [12.9580, 80.2502], [12.9540, 80.2496],
+    [12.9500, 80.2490], [12.9460, 80.2484], [12.9420, 80.2480],
+    [12.9380, 80.2476], [12.9340, 80.2474], [12.9300, 80.2472],
+    [12.9260, 80.2470], [12.9220, 80.2469], [12.9180, 80.2470], // Kovalam
+    [12.9220, 80.2469], [12.9260, 80.2470], [12.9300, 80.2472],
+    [12.9340, 80.2474], [12.9380, 80.2476], [12.9420, 80.2480],
+    [12.9460, 80.2484], [12.9500, 80.2490], [12.9540, 80.2496],
+    [12.9580, 80.2502], [12.9620, 80.2508], [12.9660, 80.2512],
+    [12.9695, 80.2518], [12.9730, 80.2525], [12.9765, 80.2535],
+    [12.9800, 80.2545],
+  ],
+};
+
+const VEHICLE_EMOJIS = { EV: '⚡', Petrol: '🚗', Diesel: '🚐', Hybrid: '🔋' };
+
+// Compute compass bearing between two [lat,lon] points
+const calcBearing = (p1, p2) => {
+  const toRad = d => d * Math.PI / 180;
+  const dLon  = toRad(p2[1] - p1[1]);
+  const lat1  = toRad(p1[0]);
+  const lat2  = toRad(p2[0]);
+  const y     = Math.sin(dLon) * Math.cos(lat2);
+  const x     = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+};
+
 const rnd   = (a, b) => Math.random() * (b - a) + a;
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 
 function initSimState() {
   return Object.fromEntries(
-    SIM_VEHICLES.map(v => [
-      v.id,
-      {
-        speed:             rnd(30, 80),
-        temp:              rnd(70, 85),
-        battery:           v.type === 'EV'  ? rnd(50, 90) : null,
-        fuel:              v.type !== 'EV'  ? rnd(20, 60) : null,
-        rpm:               rnd(1500, 3000),
-        lat:               12.9716 + rnd(-0.05, 0.05),
-        lon:               80.2709 + rnd(-0.05, 0.05),
-        anomalyCountdown:  Math.round(rnd(20, 60)),
-        activeAnomaly:     null,
-        anomalyLog:        [],
-        tick:              0,
-      },
-    ])
+    SIM_VEHICLES.map((v, vi) => {
+      const route    = VEHICLE_ROUTES[v.id];
+      // Stagger starting positions so vehicles are spread across their routes
+      const startIdx = Math.floor((route.length - 1) * (vi / SIM_VEHICLES.length));
+      const startPt  = route[startIdx];
+      return [
+        v.id,
+        {
+          speed:            rnd(30, 80),
+          temp:             rnd(70, 85),
+          battery:          v.type === 'EV'  ? rnd(50, 90) : null,
+          fuel:             v.type !== 'EV'  ? rnd(20, 60) : null,
+          rpm:              rnd(1500, 3000),
+          lat:              startPt[0],
+          lon:              startPt[1],
+          routeIdx:         startIdx,
+          routeProg:        rnd(0, 0.5),
+          bearing:          0,
+          trail:            [startPt],
+          anomalyCountdown: Math.round(rnd(20, 60)),
+          activeAnomaly:    null,
+          anomalyLog:       [],
+          tick:             0,
+        },
+      ];
+    })
   );
 }
 
@@ -143,14 +232,44 @@ function tickSimState(prev) {
       s.speed = clamp(s.speed + rnd(-5, 5), 0, 160);
       s.temp  = clamp(s.temp  + rnd(-1, 1.5), 60, 105);
       s.rpm   = clamp(s.speed * 38 + rnd(-200, 200), 800, 7000);
-      s.lat  += rnd(-0.0005, 0.0005);
-      s.lon  += rnd(-0.0005, 0.0005);
 
       if (v.type === 'EV') {
         s.battery = clamp(s.battery - s.speed * 0.0003 + rnd(-0.1, 0.2), 5, 100);
       } else {
         s.fuel = clamp(s.fuel - rnd(0.01, 0.05), 0, 60);
       }
+
+      // ── Road-following movement ──────────────────────────────────────────
+      const route    = VEHICLE_ROUTES[v.id] || [];
+      const maxIdx   = route.length - 2; // last valid source segment idx
+      let   routeIdx = s.routeIdx  ?? 0;
+      let   routeProg= s.routeProg ?? 0;
+
+      // Advance progress proportional to speed (tuned: 60 km/h ≈ 12 ticks/segment)
+      const step = s.speed / 72000;
+      routeProg += step;
+      while (routeProg >= 1 && maxIdx >= 0) {
+        routeProg -= 1;
+        routeIdx  = (routeIdx + 1) % (maxIdx + 1);
+      }
+
+      // Interpolate position between current and next waypoint
+      const wp0 = route[routeIdx]     || route[0];
+      const wp1 = route[routeIdx + 1] || route[0];
+      s.lat      = wp0[0] + (wp1[0] - wp0[0]) * routeProg;
+      s.lon      = wp0[1] + (wp1[1] - wp0[1]) * routeProg;
+      s.bearing  = calcBearing(wp0, wp1);
+      s.routeIdx = routeIdx;
+      s.routeProg= routeProg;
+
+      // Update trail — store last 20 positions, throttled every 3 ticks
+      if (s.tick % 3 === 0) {
+        const prevTrail = prev[v.id].trail || [];
+        s.trail = [[s.lat, s.lon], ...prevTrail].slice(0, 20);
+      } else {
+        s.trail = prev[v.id].trail || [];
+      }
+      // ────────────────────────────────────────────────────────────────────
 
       s.anomalyCountdown--;
       s.activeAnomaly = null;
@@ -162,7 +281,7 @@ function tickSimState(prev) {
           Diesel: ['overheat', 'overspeed', 'fuel_leak', 'transmission_slip', 'brake_overheat'],
           Hybrid: ['overheat', 'overspeed', 'low_battery', 'high_rpm', 'transmission_slip'],
         };
-        const pool   = pools[v.type] || pools.Petrol;
+        const pool    = pools[v.type] || pools.Petrol;
         const anomaly = pool[Math.floor(Math.random() * pool.length)];
 
         if (anomaly === 'overheat')          { s.temp    = rnd(102, 110); }
@@ -617,6 +736,7 @@ const LoginScreen = ({ onLogin }) => {
 const NAV = [
   { id: 'dashboard',     icon: LayoutDashboard, label: 'Dashboard',     roles: ['super_admin', 'org_admin', 'fleet_manager', 'driver'] },
   { id: 'telemetry',     icon: Radio,           label: 'Live Telemetry',roles: ['super_admin', 'org_admin', 'fleet_manager', 'driver'], live: true },
+  { id: 'map',           icon: MapPin,          label: 'Live Map',      roles: ['super_admin', 'org_admin', 'fleet_manager', 'driver'], live: true },
   { id: 'vehicles',      icon: Truck,           label: 'Vehicles',      roles: ['super_admin', 'org_admin', 'fleet_manager', 'driver'] },
   { id: 'schedules',     icon: Calendar,        label: 'Schedules',     roles: ['super_admin', 'org_admin', 'fleet_manager', 'driver'] },
   { id: 'organizations', icon: Building2,       label: 'Organizations', roles: ['super_admin'] },
@@ -2072,8 +2192,489 @@ const ReportsPage = ({ user, vehicles, schedules, orgs, history }) => {
   );
 };
 
+// ─── Route names for display ──────────────────────────────────────────────────
+const ROUTE_NAMES = {
+  'VH-001': 'Anna Salai (Mount Road)',
+  'VH-002': 'OMR — IT Corridor',
+  'VH-003': 'Chennai Port → T.Nagar',
+  'VH-004': 'Adyar → Velachery',
+  'VH-005': 'ECR — Coastal Route',
+};
+
+
+
+// ─── Real Leaflet MapPage (OpenStreetMap tiles) ────────────────────────────────
+
+const MapPage = ({ simState }) => {
+  const mapContainerRef = useRef(null);
+  const mapRef          = useRef(null);
+  const markersRef      = useRef({});
+  const trailsRef       = useRef({});
+  const routeLinesRef   = useRef({});
+  const simStateRef     = useRef(simState);
+
+  const [showRoutes,   setShowRoutes]   = useState(true);
+  const [showTrails,   setShowTrails]   = useState(true);
+  const [selectedVid,  setSelectedVid]  = useState(null);
+  const [leafletReady, setLeafletReady] = useState(!!window.L);
+
+  // ── Load Leaflet CSS + JS once ──────────────────────────────────────────────
+  useEffect(() => {
+    if (window.L) { setLeafletReady(true); return; }
+    const css = document.createElement('link');
+    css.rel   = 'stylesheet';
+    css.href  = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css';
+    document.head.appendChild(css);
+    const js    = document.createElement('script');
+    js.src      = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js';
+    js.onload   = () => setLeafletReady(true);
+    document.head.appendChild(js);
+  }, []);
+
+  // ── Initialise map after Leaflet loads ────────────────────────────────────
+  useEffect(() => {
+    if (!leafletReady || !mapContainerRef.current || mapRef.current) return;
+    const L   = window.L;
+    const map = L.map(mapContainerRef.current, {
+      center: [13.03, 80.27],
+      zoom:   12,
+      zoomControl: false,
+      attributionControl: true,
+    });
+
+    // Standard OSM tiles — universally accessible
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      subdomains: 'abc',
+      maxZoom: 19,
+    }).addTo(map);
+
+    // Fit map to show all vehicle routes
+    const allPts = Object.values(VEHICLE_ROUTES).flat();
+    if (allPts.length) {
+      const bounds = L.latLngBounds(allPts);
+      map.fitBounds(bounds.pad(0.12));
+    }
+
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
+
+    // Draw route paths (dashed polylines)
+    SIM_VEHICLES.forEach(v => {
+      const pts = VEHICLE_ROUTES[v.id];
+      if (!pts?.length) return;
+      const line = L.polyline(pts, {
+        color:     v.color,
+        weight:    2.5,
+        opacity:   0.45,
+        dashArray: '8 6',
+      }).addTo(map);
+      routeLinesRef.current[v.id] = line;
+    });
+
+    mapRef.current = map;
+
+    return () => {
+      map.remove();
+      mapRef.current    = null;
+      markersRef.current   = {};
+      trailsRef.current    = {};
+      routeLinesRef.current= {};
+    };
+  }, [leafletReady]);
+
+  // ── Keep simStateRef in sync ───────────────────────────────────────────────
+  useEffect(() => { simStateRef.current = simState; }, [simState]);
+
+  // ── Build a DivIcon for a vehicle ─────────────────────────────────────────
+  const makeIcon = useCallback((v, s) => {
+    const L        = window.L;
+    const hasAlert = !!s.activeAnomaly;
+    const color    = hasAlert ? '#fb7185' : v.color;
+    const emoji    = VEHICLE_EMOJIS[v.type] || '🚗';
+    const bearing  = s.bearing || 0;
+    const pulse    = hasAlert
+      ? `@keyframes leafPulse{0%,100%{box-shadow:0 0 10px ${color}88}50%{box-shadow:0 0 22px ${color}}}`
+      : '';
+    return L.divIcon({
+      className: '',
+      iconSize:  [36, 36],
+      iconAnchor:[18, 18],
+      html: `
+        <style>${pulse}</style>
+        <div style="position:relative;width:36px;height:36px;">
+          <!-- direction arrow -->
+          <div style="
+            position:absolute;top:50%;left:50%;
+            width:0;height:0;
+            border-left:5px solid transparent;
+            border-right:5px solid transparent;
+            border-bottom:12px solid ${color};
+            transform:translate(-50%,-100%) rotate(${bearing}deg);
+            transform-origin:50% 100%;
+            margin-top:-18px;
+          "></div>
+          <!-- circle -->
+          <div style="
+            width:36px;height:36px;
+            background:${color}22;
+            border:2.5px solid ${color};
+            border-radius:50%;
+            display:flex;align-items:center;justify-content:center;
+            font-size:15px;
+            ${hasAlert ? `animation:leafPulse 1.4s infinite;` : `box-shadow:0 0 8px ${color}55;`}
+          ">${emoji}</div>
+          <!-- label -->
+          <div style="
+            position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);
+            background:rgba(6,16,31,0.93);
+            border:1px solid ${color}77;
+            border-radius:4px;padding:1px 7px;
+            color:${color};font-size:9px;font-weight:700;
+            font-family:monospace;white-space:nowrap;
+            pointer-events:none;
+          ">${v.id}</div>
+          ${hasAlert ? `<div style="
+            position:absolute;top:0;right:0;width:10px;height:10px;
+            background:#fb7185;border-radius:50%;
+            border:1.5px solid #06101f;
+          "></div>` : ''}
+        </div>`,
+    });
+  }, []);
+
+  // ── Update markers + trails every simState tick ───────────────────────────
+  useEffect(() => {
+    if (!mapRef.current || !leafletReady || !window.L) return;
+    const L   = window.L;
+    const map = mapRef.current;
+
+    SIM_VEHICLES.forEach(v => {
+      const s = simState[v.id];
+      if (!s?.lat) return;
+
+      // Marker
+      const icon = makeIcon(v, s);
+      if (markersRef.current[v.id]) {
+        markersRef.current[v.id].setLatLng([s.lat, s.lon]);
+        markersRef.current[v.id].setIcon(icon);
+      } else {
+        const m = L.marker([s.lat, s.lon], { icon, zIndexOffset: 1000 })
+          .addTo(map)
+          .on('click', () => setSelectedVid(prev => prev === v.id ? null : v.id));
+        markersRef.current[v.id] = m;
+      }
+
+      // Trail
+      if (showTrails && s.trail?.length > 1) {
+        if (trailsRef.current[v.id]) {
+          trailsRef.current[v.id].setLatLngs(s.trail);
+        } else {
+          trailsRef.current[v.id] = L.polyline(s.trail, {
+            color:   v.color,
+            weight:  3,
+            opacity: 0.65,
+          }).addTo(map);
+        }
+      } else if (!showTrails && trailsRef.current[v.id]) {
+        map.removeLayer(trailsRef.current[v.id]);
+        delete trailsRef.current[v.id];
+      }
+    });
+
+    // Toggle route polylines
+    SIM_VEHICLES.forEach(v => {
+      const line = routeLinesRef.current[v.id];
+      if (!line) return;
+      if (showRoutes  && !map.hasLayer(line)) line.addTo(map);
+      if (!showRoutes &&  map.hasLayer(line)) map.removeLayer(line);
+    });
+  }, [simState, showTrails, showRoutes, leafletReady, makeIcon]);
+
+  // ── Focus / reset ─────────────────────────────────────────────────────────
+  const focusOnVehicle = useCallback(vid => {
+    const s = simStateRef.current[vid];
+    if (!mapRef.current || !s?.lat) return;
+    mapRef.current.flyTo([s.lat, s.lon], 15, { duration: 1 });
+  }, []);
+
+  const resetView = useCallback(() => {
+    mapRef.current?.flyTo([13.03, 80.27], 12, { duration: 1 });
+    setSelectedVid(null);
+  }, []);
+
+  const selectedVehicle = selectedVid ? SIM_VEHICLES.find(v => v.id === selectedVid) : null;
+  const selectedState   = selectedVid ? simState[selectedVid] : null;
+
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, padding: '24px 28px 24px', boxSizing: 'border-box', gap: 16 }}>
+
+      {/* Header row */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, flexShrink: 0 }}>
+        <div>
+          <h1 style={{ color: T.text, fontSize: 22, fontWeight: 800, margin: '0 0 3px', letterSpacing: '-0.5px' }}>Live Map</h1>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ width: 7, height: 7, borderRadius: '50%', background: T.green, display: 'inline-block', animation: 'pulse 2s infinite', boxShadow: `0 0 6px ${T.green}` }} />
+            <span style={{ color: T.muted, fontSize: 12 }}>
+              {SIM_VEHICLES.length} vehicles · OpenStreetMap · live 2s tick · Chennai roads
+            </span>
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          {[
+            { label: '⎯ Routes', active: showRoutes, toggle: () => setShowRoutes(p => !p), color: T.blue  },
+            { label: '〰 Trails', active: showTrails, toggle: () => setShowTrails(p => !p), color: T.green },
+          ].map(ctrl => (
+            <button key={ctrl.label} onClick={ctrl.toggle} style={{
+              padding: '5px 13px', borderRadius: 7,
+              border: `1px solid ${ctrl.active ? ctrl.color : T.border}`,
+              background: ctrl.active ? `${ctrl.color}18` : 'transparent',
+              color: ctrl.active ? ctrl.color : T.muted,
+              fontSize: 12, fontWeight: 600, cursor: 'pointer',
+            }}>
+              {ctrl.label}
+            </button>
+          ))}
+          <button onClick={resetView} style={{ padding: '5px 13px', borderRadius: 7, border: `1px solid ${T.border}`, background: 'transparent', color: T.muted, fontSize: 12, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+            <X size={11} /> Reset view
+          </button>
+        </div>
+      </div>
+
+      {/* Map + right sidebar */}
+      <div style={{ flex: 1, display: 'flex', gap: 12, minHeight: 0 }}>
+
+        {/* Leaflet map container */}
+        <div style={{ flex: 1, position: 'relative', borderRadius: 12, overflow: 'hidden', border: `1px solid ${T.border}`, minHeight: 0 }}>
+
+          {/* Loading state */}
+          {!leafletReady && (
+            <div style={{ position: 'absolute', inset: 0, background: T.card, display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, borderRadius: 12 }}>
+              <div style={{ color: T.muted, fontSize: 14 }}>Loading map…</div>
+            </div>
+          )}
+
+          <div ref={mapContainerRef} style={{ width: '100%', height: '100%' }} />
+
+          {/* Floating alert badges */}
+          {(() => {
+            const alertVehicles = SIM_VEHICLES.filter(v => simState[v.id]?.activeAnomaly);
+            if (!alertVehicles.length) return null;
+            return (
+              <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 800, display: 'flex', gap: 6, flexWrap: 'wrap', justifyContent: 'center', maxWidth: '80%', pointerEvents: 'none' }}>
+                {alertVehicles.map(v => (
+                  <div key={v.id} onClick={(e) => { e.stopPropagation(); focusOnVehicle(v.id); setSelectedVid(v.id); }}
+                    style={{ background: 'rgba(251,113,133,0.15)', border: '1px solid rgba(251,113,133,0.55)', backdropFilter: 'blur(10px)', borderRadius: 20, padding: '4px 11px', color: T.red, fontSize: 11, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5, animation: 'pulse 2s infinite', pointerEvents: 'auto' }}>
+                    <AlertTriangle size={10} />
+                    {v.id} — {(simState[v.id]?.activeAnomaly || '').replace(/_/g,' ').toUpperCase()}
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
+
+          {/* Selected vehicle popup panel */}
+          {selectedVehicle && selectedState && (
+            <div style={{ position: 'absolute', top: 12, right: 12, zIndex: 800, background: T.card, border: `1px solid ${selectedVehicle.color}44`, borderRadius: 10, overflow: 'hidden', minWidth: 215, boxShadow: '0 8px 32px rgba(0,0,0,0.75)', backdropFilter: 'blur(10px)' }}>
+              <div style={{ background: selectedVehicle.color + '18', borderBottom: `1px solid ${selectedVehicle.color}30`, padding: '10px 14px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: selectedVehicle.color, letterSpacing: '0.06em', fontFamily: 'monospace' }}>{selectedVehicle.id}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: T.text, margin: '2px 0' }}>{selectedVehicle.name}</div>
+                  <div style={{ fontSize: 11, color: T.muted }}>{selectedVehicle.type} · {ROUTE_NAMES[selectedVehicle.id] || ''}</div>
+                </div>
+                <button onClick={() => setSelectedVid(null)} style={{ background: 'none', border: 'none', color: T.muted, cursor: 'pointer', padding: 2, display: 'flex' }}><X size={14} /></button>
+              </div>
+              <div style={{ padding: '10px 14px', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {[
+                  { label: 'Speed', value: `${selectedState.speed.toFixed(0)} km/h`, color: T.blue },
+                  { label: 'Temp',  value: `${selectedState.temp.toFixed(0)}°C`,     color: selectedState.temp > 100 ? T.red : T.amber },
+                  selectedState.battery != null
+                    ? { label: 'Battery', value: `${selectedState.battery.toFixed(0)}%`, color: selectedState.battery < 15 ? T.red : T.green }
+                    : { label: 'Fuel',    value: `${(selectedState.fuel||0).toFixed(1)} L`, color: T.cyan },
+                  { label: 'RPM', value: Math.round(selectedState.rpm).toLocaleString(), color: selectedState.rpm > 6000 ? T.red : T.purple },
+                ].map((m, i) => (
+                  <div key={i} style={{ background: '#06101f', borderRadius: 6, padding: '8px 10px' }}>
+                    <div style={{ color: T.dim, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 3 }}>{m.label}</div>
+                    <div style={{ color: m.color, fontSize: 16, fontWeight: 800 }}>{m.value}</div>
+                  </div>
+                ))}
+              </div>
+              <div style={{ padding: '5px 14px 7px', display: 'flex', justifyContent: 'space-between', borderTop: `1px solid ${T.border}` }}>
+                <span style={{ color: T.dim, fontSize: 10, fontFamily: 'monospace' }}>📍 {selectedState.lat.toFixed(4)}, {selectedState.lon.toFixed(4)}</span>
+                <span style={{ color: T.dim, fontSize: 10 }}>🧭 {Math.round(selectedState.bearing || 0)}°</span>
+              </div>
+              {selectedState.activeAnomaly && (
+                <div style={{ padding: '8px 14px', background: T.redBg, borderTop: `1px solid ${T.red}33`, color: T.red, fontSize: 11, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span>⚠</span>
+                  <span>{(ANOMALY_TYPES[selectedState.activeAnomaly]?.label || selectedState.activeAnomaly).replace(/_/g,' ').toUpperCase()}</span>
+                  <span style={{ marginLeft: 'auto', fontFamily: 'monospace', fontSize: 10, opacity: 0.7 }}>{ANOMALY_TYPES[selectedState.activeAnomaly]?.code || ''}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Map legend (bottom-left) — collapsible */}
+          {(() => {
+            const [legendOpen, setLegendOpen] = React.useState(true);
+            return (
+              <div style={{ position: 'absolute', bottom: 20, left: 12, zIndex: 800, minWidth: 44 }}>
+                {/* Toggle pill */}
+                <button
+                  onClick={() => setLegendOpen(p => !p)}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 6,
+                    background: 'rgba(8,14,28,0.92)', border: `1px solid ${T.borderHi}`,
+                    borderRadius: legendOpen ? '8px 8px 0 0' : 8,
+                    padding: '5px 10px', cursor: 'pointer', width: '100%',
+                    backdropFilter: 'blur(12px)',
+                  }}>
+                  <Layers size={11} color={T.blue} />
+                  <span style={{ color: T.text, fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', flex: 1, textAlign: 'left' }}>Fleet</span>
+                  <span style={{ color: T.dim, fontSize: 9, transition: 'transform 0.2s', display: 'inline-block', transform: legendOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}>▾</span>
+                </button>
+
+                {/* Body */}
+                {legendOpen && (
+                  <div style={{
+                    background: 'rgba(8,14,28,0.92)', border: `1px solid ${T.borderHi}`,
+                    borderTop: 'none', borderRadius: '0 0 8px 8px',
+                    padding: '6px 0 4px', backdropFilter: 'blur(12px)', overflow: 'hidden',
+                  }}>
+                    {SIM_VEHICLES.map(v => {
+                      const s = simState[v.id];
+                      const hasAlert = s?.activeAnomaly;
+                      const isSelected = selectedVid === v.id;
+                      return (
+                        <div key={v.id}
+                          onClick={() => { focusOnVehicle(v.id); setSelectedVid(v.id); }}
+                          style={{
+                            display: 'flex', alignItems: 'center', gap: 8,
+                            padding: '4px 10px', cursor: 'pointer',
+                            background: isSelected ? `${v.color}12` : 'transparent',
+                            borderLeft: `2px solid ${isSelected ? v.color : 'transparent'}`,
+                            transition: 'background 0.15s',
+                          }}>
+                          {/* Animated status dot */}
+                          <div style={{
+                            width: 7, height: 7, borderRadius: '50%',
+                            background: hasAlert ? T.red : v.color,
+                            boxShadow: `0 0 5px ${hasAlert ? T.red : v.color}`,
+                            flexShrink: 0,
+                            animation: hasAlert ? 'pulse 1s infinite' : 'none',
+                          }} />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                              <span style={{ color: v.color, fontSize: 9, fontWeight: 800, fontFamily: 'monospace' }}>{v.id}</span>
+                              {hasAlert && <span style={{ color: T.red, fontSize: 8, fontWeight: 700 }}>⚠</span>}
+                            </div>
+                            <div style={{ color: T.muted, fontSize: 10, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 130 }}>{v.name}</div>
+                          </div>
+                          {/* Live speed badge */}
+                          {s && (
+                            <span style={{ color: T.dim, fontSize: 9, fontFamily: 'monospace', flexShrink: 0 }}>
+                              {s.speed.toFixed(0)}<span style={{ fontSize: 7 }}>km/h</span>
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+        </div>
+
+        {/* Right sidebar – vehicle cards */}
+        <div style={{ width: 234, display: 'flex', flexDirection: 'column', gap: 8, overflowY: 'auto', overflowX: 'hidden', flexShrink: 0, minHeight: 0 }}>
+          {SIM_VEHICLES.map(v => {
+            const s        = simState[v.id];
+            if (!s) return null;
+            const hasAlert = !!s.activeAnomaly;
+            const isFocus  = selectedVid === v.id;
+            const energy   = s.battery != null
+              ? { label: 'Battery', value: `${s.battery.toFixed(0)}%`, pct: s.battery, color: s.battery < 15 ? T.red : T.green }
+              : { label: 'Fuel',    value: `${(s.fuel||0).toFixed(1)}L`, pct: (s.fuel||0)/60*100, color: T.cyan };
+            const metrics = [
+              { label: 'Speed', value: s.speed.toFixed(0), unit: 'km/h', pct: s.speed/160*100, color: s.speed > 130 ? T.red : T.blue },
+              { label: 'Temp',  value: s.temp.toFixed(0),  unit: '°C',   pct: (s.temp-60)/50*100, color: s.temp > 100 ? T.red : T.amber },
+              { label: energy.label, value: energy.value, unit: '', pct: energy.pct, color: energy.color },
+              { label: 'RPM',   value: Math.round(s.rpm/100)/10+'k', unit: '', pct: s.rpm/7000*100, color: s.rpm > 6000 ? T.red : T.purple },
+            ];
+            return (
+              <div key={v.id} onClick={() => { setSelectedVid(isFocus ? null : v.id); if (!isFocus) focusOnVehicle(v.id); }} style={{
+                background: isFocus ? T.cardHover : T.card,
+                border: `1px solid ${isFocus ? v.color : hasAlert ? T.red : T.border}`,
+                borderRadius: 10, padding: '11px 13px', cursor: 'pointer',
+                transition: 'border-color 0.2s, background 0.2s',
+                boxShadow: isFocus ? `0 0 14px ${v.color}1a` : hasAlert ? `0 0 8px ${T.red}14` : 'none',
+              }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 7 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 13 }}>{VEHICLE_EMOJIS[v.type] || '🚗'}</span>
+                    <div>
+                      <div style={{ color: v.color, fontSize: 9, fontWeight: 800, fontFamily: 'monospace', letterSpacing: '0.04em' }}>{v.id}</div>
+                      <div style={{ color: T.text, fontSize: 11, fontWeight: 600, lineHeight: 1.25, maxWidth: 110, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{v.name}</div>
+                    </div>
+                  </div>
+                  {hasAlert
+                    ? <span style={{ background: T.redBg, color: T.red, fontSize: 9, fontWeight: 700, padding: '2px 6px', borderRadius: 8, animation: 'pulse 2s infinite', whiteSpace: 'nowrap' }}>⚠ FAULT</span>
+                    : <span style={{ background: T.greenBg, color: T.green, fontSize: 9, fontWeight: 600, padding: '2px 6px', borderRadius: 8 }}>● LIVE</span>
+                  }
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 5 }}>
+                  {metrics.map((m, i) => (
+                    <div key={i}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+                        <span style={{ color: T.dim, fontSize: 8, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>{m.label}</span>
+                        <span style={{ color: m.color, fontSize: 9, fontWeight: 700 }}>{m.value}<span style={{ fontSize: 7, color: T.dim }}>{m.unit}</span></span>
+                      </div>
+                      <div style={{ height: 3, background: T.border, borderRadius: 2, overflow: 'hidden' }}>
+                        <div style={{ height: '100%', width: `${Math.min(100,Math.max(0,m.pct))}%`, background: m.color, borderRadius: 2, transition: 'width 0.5s ease' }} />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ marginTop: 7, paddingTop: 6, borderTop: `1px solid ${T.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: T.dim, fontSize: 9, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: 150 }}>
+                    📍 {ROUTE_NAMES[v.id]?.split('—')[0]?.trim() || 'En route'}
+                  </span>
+                  <Navigation size={10} color={isFocus ? v.color : T.dim}
+                    style={{ transform: `rotate(${(s.bearing||0)-45}deg)`, transition: 'transform 0.5s ease', flexShrink: 0 }} />
+                </div>
+                {hasAlert && (
+                  <div style={{ marginTop: 5, background: T.redBg, border: `1px solid ${T.red}33`, borderRadius: 5, padding: '3px 7px', color: T.red, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    {ANOMALY_TYPES[s.activeAnomaly]?.icon} {ANOMALY_TYPES[s.activeAnomaly]?.label || s.activeAnomaly.replace(/_/g,' ')}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {/* Summary footer card */}
+          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 10, padding: '10px 13px', flexShrink: 0 }}>
+            <div style={{ color: T.dim, fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 7 }}>Fleet Summary</div>
+            {[
+              { label: 'Online',   value: SIM_VEHICLES.length,                                                                                       color: T.green },
+              { label: 'Faults',   value: SIM_VEHICLES.filter(v => simState[v.id]?.activeAnomaly).length,                                            color: T.red   },
+              { label: 'Avg spd',  value: `${Math.round(SIM_VEHICLES.reduce((s,v) => s+(simState[v.id]?.speed||0),0)/SIM_VEHICLES.length)} km/h`,    color: T.blue  },
+              { label: 'Max temp', value: `${Math.round(Math.max(...SIM_VEHICLES.map(v=>simState[v.id]?.temp||0)))}°C`,                              color: T.amber },
+            ].map((row,i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                <span style={{ color: T.dim, fontSize: 10 }}>{row.label}</span>
+                <span style={{ color: row.color, fontSize: 10, fontWeight: 700 }}>{row.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+
+
 const PAGE_TITLES = {
-  dashboard: 'Dashboard', telemetry: 'Live Telemetry', vehicles: 'Vehicles',
+  dashboard: 'Dashboard', telemetry: 'Live Telemetry', map: 'Live Map', vehicles: 'Vehicles',
   schedules: 'Schedules', organizations: 'Organizations', users: 'Users', reports: 'Reports',
 };
 
@@ -2140,31 +2741,52 @@ export default function FleetApp() {
     return () => clearInterval(t);
   }, []);
 
+  // ⚠ liveAlerts must be computed BEFORE any conditional return (Rules of Hooks: no hooks after conditional)
   const liveAlerts = Object.values(telemetry.sim).filter(s => s.activeAnomaly).length;
 
   if (!currentUser) {
     return <LoginScreen onLogin={u => { setCurrentUser(u); setPage('dashboard'); }} />;
   }
 
-  const sharedProps = { user: currentUser, orgs, vehicles, schedules, users, setOrgs, setVehicles, setSchedules, setUsers };
+  const p = { user: currentUser, orgs, vehicles, schedules, users, setOrgs, setVehicles, setSchedules, setUsers };
 
-  const PAGES = {
-    dashboard:     <Dashboard    {...sharedProps} simState={telemetry.sim} />,
-    telemetry:     <TelemetryPage simState={telemetry.sim} history={telemetry.history} apiUrl={apiUrl} setApiUrl={setApiUrl} connected={connected} />,
-    vehicles:      <VehiclesPage  {...sharedProps} />,
-    schedules:     <SchedulesPage {...sharedProps} />,
-    organizations: <OrgsPage      {...sharedProps} />,
-    users:         <UsersPage     {...sharedProps} />,
-    reports:       <ReportsPage   {...sharedProps} history={telemetry.history} />,
+  const renderPage = () => {
+    switch (page) {
+      case 'dashboard':     return <Dashboard     {...p} simState={telemetry.sim} />;
+      case 'telemetry':     return <TelemetryPage simState={telemetry.sim} history={telemetry.history} apiUrl={apiUrl} setApiUrl={setApiUrl} connected={connected} />;
+      case 'map':           return <MapPage simState={telemetry.sim} />;
+      case 'vehicles':      return <VehiclesPage  {...p} />;
+      case 'schedules':     return <SchedulesPage {...p} />;
+      case 'organizations': return <OrgsPage      {...p} />;
+      case 'users':         return <UsersPage     {...p} />;
+      case 'reports':       return <ReportsPage   {...p} history={telemetry.history} />;
+      default:              return <Dashboard     {...p} simState={telemetry.sim} />;
+    }
   };
 
   return (
     <div style={{ display: 'flex', height: '100vh', background: T.bg, fontFamily: '"Outfit",system-ui,sans-serif', color: T.text, overflow: 'hidden' }}>
-      <style>{`@keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.5 } } @keyframes spin { from { transform:rotate(0deg) } to { transform:rotate(360deg) } }`}</style>
+      <style>{`
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+        @keyframes spin   { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+        *,*::before,*::after { box-sizing: border-box; }
+        html,body,#root { height:100%; margin:0; }
+        .leaflet-container { background: #0d1b2e !important; }
+        .leaflet-tile-pane { filter: invert(100%) hue-rotate(180deg) brightness(90%) saturate(120%); }
+        .leaflet-marker-pane, .leaflet-overlay-pane, .leaflet-shadow-pane,
+        .leaflet-popup-pane, .leaflet-control-container { filter: none !important; }
+        .leaflet-control-attribution { background: rgba(6,16,31,0.85) !important; color: #94a3b8 !important; font-size: 10px !important; }
+        .leaflet-control-attribution a { color: #60a5fa !important; }
+        .leaflet-control-zoom a { background: #0c1524 !important; color: #94a3b8 !important; border-color: rgba(148,163,184,0.2) !important; line-height:28px !important; }
+        .leaflet-control-zoom a:hover { background: #111e30 !important; color: #e2e8f0 !important; }
+        .leaflet-div-icon { background: none !important; border: none !important; }
+      `}</style>
       <Sidebar user={currentUser} page={page} setPage={setPage} onLogout={() => setCurrentUser(null)} />
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
         <TopBar page={page} user={currentUser} alerts={liveAlerts} />
-        <main style={{ flex: 1, overflowY: 'auto' }}>{PAGES[page] || PAGES.dashboard}</main>
+        <main style={{ flex: 1, overflow: page === 'map' ? 'hidden' : 'auto', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          {renderPage()}
+        </main>
       </div>
     </div>
   );
