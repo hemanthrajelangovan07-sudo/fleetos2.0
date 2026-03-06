@@ -74,6 +74,10 @@ Automated detection of 8 critical vehicle anomaly types with severity classifica
 - Area charts for historical telemetry trends
 - Anomaly logs with timestamps and risk levels
 
+### Live Tracking:
+- Gives Real-time location of each vehicle
+- Utilizes OpenStreetView and leaflet
+
 ### 🔌 Backend Connectivity
 - Configurable API endpoint (defaults to `http://localhost:8000`)
 - Live connection status ping every 10 seconds
